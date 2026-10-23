@@ -5,34 +5,71 @@ struct HomeDashboardView: View {
     @State private var showingNotificationsSheet = false
     @State private var showingTakeNowAlert = false
     @State private var takenDoseName = ""
+    @State private var pulseHeroHalo = false
+    @State private var filterStatus: Int = 0 // 0: All, 1: Pending, 2: Taken
+    @State private var showingRefillSheet = false
+    @State private var selectedMedForRefill: Medicine?
+    
+    var filteredDoses: [ScheduledDose] {
+        switch filterStatus {
+        case 1:
+            return store.todaySchedule.filter { !$0.isTaken }
+        case 2:
+            return store.todaySchedule.filter { $0.isTaken }
+        default:
+            return store.todaySchedule
+        }
+    }
     
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
-                // Top Header: User Profile Greeting & Notification Bell
+            VStack(spacing: 22) {
+                // MARK: - Futuristic Top Header & Bio-Telemetry
                 HStack(alignment: .center) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 14) {
                         ZStack {
                             Circle()
-                                .fill(LinearGradient(colors: [Color.blue.opacity(0.7), Color.purple.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 48, height: 48)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [AppTheme.primaryRed, AppTheme.quantumPurple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 54, height: 54)
+                                .shadow(color: AppTheme.primaryRed.opacity(0.35), radius: 8, x: 0, y: 4)
                             
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 24))
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 32, weight: .semibold))
                                 .foregroundColor(.white)
                         }
                         
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(store.greeting()),")
-                                .font(.system(size: 14, weight: .regular, design: .rounded))
-                                .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text("\(store.greeting()),")
+                                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                
+                                // Futuristic live status dot
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(AppTheme.neonGreen)
+                                        .frame(width: 6, height: 6)
+                                    Text("SYNCED")
+                                        .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                                        .foregroundColor(AppTheme.neonGreen)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(AppTheme.neonGreen.opacity(0.12)))
+                            }
                             
                             Text(store.userName)
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
                                 .foregroundColor(.primary)
                             
                             Text(store.tr("Stay healthy, stay happy!"))
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -46,70 +83,117 @@ struct HomeDashboardView: View {
                     }) {
                         ZStack(alignment: .topTrailing) {
                             Circle()
-                                .fill(store.isDarkMode ? AppTheme.cardBackgroundDark : Color.white)
-                                .frame(width: 42, height: 42)
+                                .fill(store.isDarkMode ? Color(red: 24/255, green: 32/255, blue: 50/255) : Color.white)
+                                .frame(width: 48, height: 48)
                                 .overlay(
                                     Circle()
-                                        .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                                        .stroke(Color.secondary.opacity(0.15), lineWidth: 1.2)
                                 )
-                                .shadow(color: Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
+                                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
                             
-                            Image(systemName: "bell.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.primary)
-                                .frame(width: 42, height: 42)
+                            Image(systemName: "bell.badge.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(AppTheme.primaryRed)
+                                .frame(width: 48, height: 48)
                             
                             if store.unreadNotificationsCount > 0 {
-                                Circle()
-                                    .fill(AppTheme.primaryRed)
-                                    .frame(width: 10, height: 10)
-                                    .offset(x: -2, y: 4)
+                                Text("\(store.unreadNotificationsCount)")
+                                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .frame(width: 18, height: 18)
+                                    .background(Circle().fill(AppTheme.primaryRed))
+                                    .offset(x: 2, y: -2)
                             }
                         }
                     }
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
                 
-                // Next Medicine Hero Card
-                if let next = store.nextMedicine() {
-                    VStack(alignment: .leading, spacing: 14) {
+                // MARK: - Animated Live Heartbeat ECG Banner
+                HStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(AppTheme.primaryRed)
+                        
+                        Text("VITAL TELEMETRY")
+                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                            .foregroundColor(AppTheme.primaryRed)
+                    }
+                    
+                    ECGHeartbeatView(tintColor: AppTheme.primaryRed, height: 24)
+                    
+                    if let hr = store.latestVital(for: .heartRate) {
+                        Text("\(Int(hr.value)) BPM")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundColor(.primary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(store.isDarkMode ? Color(red: 20/255, green: 28/255, blue: 44/255) : Color.white)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(AppTheme.primaryRed.opacity(0.2), lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal, 20)
+                
+                // MARK: - Hero "Next Medicine" Card
+                if let next = store.nextMedicine(), !store.todaySchedule.allSatisfy({ $0.isTaken }) {
+                    VStack(alignment: .leading, spacing: 16) {
                         HStack(alignment: .top) {
-                            HStack(spacing: 10) {
+                            HStack(spacing: 14) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.white.opacity(0.2))
-                                        .frame(width: 44, height: 44)
+                                    Circle()
+                                        .fill(Color.white.opacity(0.18))
+                                        .frame(width: 56, height: 56)
+                                        .scaleEffect(pulseHeroHalo ? 1.15 : 0.95)
+                                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: pulseHeroHalo)
                                     
                                     Image(systemName: "pill.fill")
-                                        .font(.system(size: 22))
+                                        .font(.system(size: 28))
                                         .foregroundColor(.white)
+                                        .rotationEffect(.degrees(pulseHeroHalo ? 12 : -12))
+                                        .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulseHeroHalo)
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(store.tr("Next Medicine"))
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.85))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 6) {
+                                        Text(store.tr("Next Medicine").uppercased())
+                                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                            .foregroundColor(.white.opacity(0.9))
+                                        
+                                        Text("• \(next.assignedMemberName)")
+                                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
                                     
                                     Text(next.medicineName)
-                                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                                        .font(.system(size: 22, weight: .heavy, design: .rounded))
                                         .foregroundColor(.white)
                                     
                                     Text(next.doseDescription)
-                                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.9))
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.92))
                                 }
                             }
                             
                             Spacer()
                         }
                         
+                        Divider()
+                            .background(Color.white.opacity(0.25))
+                        
                         HStack {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "clock.fill")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 15))
                                 Text(next.timeString)
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .font(.system(size: 16, weight: .heavy, design: .monospaced))
                             }
                             .foregroundColor(.white)
                             
@@ -120,128 +204,251 @@ struct HomeDashboardView: View {
                                 takenDoseName = next.medicineName
                                 showingTakeNowAlert = true
                             }) {
-                                Text(next.isTaken ? "Taken ✓" : store.tr("Take Now"))
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundColor(next.isTaken ? Color.black.opacity(0.7) : AppTheme.primaryRed)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.white)
-                                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-                                    )
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 16))
+                                    Text(store.tr("Take Now"))
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(AppTheme.primaryRed)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white)
+                                        .shadow(color: Color.black.opacity(0.18), radius: 6, x: 0, y: 3)
+                                )
                             }
                         }
                     }
-                    .padding(18)
+                    .padding(20)
                     .background(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
                             .fill(AppTheme.heroRedGradient)
-                            .shadow(color: AppTheme.primaryRed.opacity(0.35), radius: 12, x: 0, y: 6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(Color.white.opacity(0.25), lineWidth: 1.2)
+                            )
+                            .shadow(color: AppTheme.primaryRed.opacity(0.4), radius: 16, x: 0, y: 8)
                     )
-                    .padding(.horizontal)
+                    .hologramShimmer()
+                    .padding(.horizontal, 20)
+                    .onAppear { pulseHeroHalo = true }
+                } else {
+                    // Celebration All Taken Card
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(AppTheme.neonGreen.opacity(0.2))
+                                .frame(width: 58, height: 58)
+                            
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(AppTheme.neonGreen)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("All Doses Completed!")
+                                .font(.system(size: 19, weight: .heavy, design: .rounded))
+                                .foregroundColor(.primary)
+                            
+                            Text("100% adherence score achieved for today.")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(18)
+                    .futuristicCard(cornerRadius: 22, glowColor: AppTheme.neonGreen, glowRadius: 10)
+                    .padding(.horizontal, 20)
                 }
                 
-                // 4 Quick Actions (Health Tracker, Family Sync, Reports, Emergency)
+                // MARK: - 4 Futuristic Quick Actions
                 HStack(spacing: 12) {
-                    // Health Tracker
-                    QuickActionCard(
+                    FuturisticQuickActionCard(
                         title: store.tr("Health Tracker"),
-                        systemImage: "heart.fill",
-                        tintColor: Color(red: 244/255, green: 63/255, blue: 94/255),
-                        backgroundColor: Color(red: 255/255, green: 241/255, blue: 242/255)
+                        subtitle: "Live Vitals",
+                        systemImage: "heart.text.square.fill",
+                        accentColor: AppTheme.primaryRed
                     ) {
-                        store.selectedTab = 2 // Direct to Health Tracker tab
+                        store.selectedTab = 2
                     }
                     
-                    // Family Sync
-                    QuickActionCard(
+                    FuturisticQuickActionCard(
                         title: store.tr("Family Sync"),
-                        systemImage: "person.2.fill",
-                        tintColor: Color(red: 14/255, green: 165/255, blue: 233/255),
-                        backgroundColor: Color(red: 240/255, green: 249/255, blue: 255/255)
+                        subtitle: "\(store.familyMembers.count) Synced",
+                        systemImage: "person.2.circle.fill",
+                        accentColor: AppTheme.cyberCyan
                     ) {
-                        store.selectedTab = 3 // Family Sync tab
+                        store.selectedTab = 3
                     }
                     
-                    // Reports
-                    QuickActionCard(
+                    FuturisticQuickActionCard(
                         title: store.tr("Reports"),
-                        systemImage: "chart.bar.fill",
-                        tintColor: Color(red: 139/255, green: 92/255, blue: 246/255),
-                        backgroundColor: Color(red: 245/255, green: 243/255, blue: 255/255)
+                        subtitle: "\(Int(store.overallAdherencePercentage()))% Rate",
+                        systemImage: "chart.xyaxis.line",
+                        accentColor: AppTheme.quantumPurple
                     ) {
-                        store.selectedTab = 4 // Reports / more tab
+                        store.selectedTab = 4
                     }
                     
-                    // Emergency
-                    QuickActionCard(
+                    FuturisticQuickActionCard(
                         title: store.tr("Emergency"),
-                        systemImage: "cross.case.fill",
-                        tintColor: Color(red: 239/255, green: 68/255, blue: 68/255),
-                        backgroundColor: Color(red: 254/255, green: 242/255, blue: 242/255)
+                        subtitle: "SOS 112",
+                        systemImage: "cross.circle.fill",
+                        accentColor: Color.red
                     ) {
                         store.showingSOSSheet = true
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
                 
-                // Today's Schedule Section
-                VStack(spacing: 14) {
+                // MARK: - Interactive Bio-Pulse Scanner Card
+                Button(action: {
+                    store.showingPulseScanner = true
+                }) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(AppTheme.cyberCyan.opacity(0.18))
+                                .frame(width: 46, height: 46)
+                            
+                            Image(systemName: "touchid")
+                                .font(.system(size: 26))
+                                .foregroundColor(AppTheme.cyberCyan)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text("BIOMETRIC SCANNER")
+                                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                                    .foregroundColor(AppTheme.cyberCyan)
+                                
+                                Text("• INSTANT READ")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .foregroundColor(AppTheme.neonGreen)
+                            }
+                            
+                            Text("Measure Heart Rate with Pulse Radar")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(16)
+                    .futuristicCard(cornerRadius: 18, glowColor: AppTheme.cyberCyan, glowRadius: 6)
+                }
+                .padding(.horizontal, 20)
+                
+                // MARK: - Today's Schedule Section
+                VStack(spacing: 16) {
                     HStack {
-                        Text(store.tr("Today's Schedule"))
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(store.tr("Today's Schedule"))
+                                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                                .foregroundColor(.primary)
+                            
+                            Text("\(store.todaySchedule.filter { $0.isTaken }.count) of \(store.todaySchedule.count) completed")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         
                         Button(action: {
-                            store.selectedTab = 1 // Go to Schedule tab
+                            store.markAllDosesTaken()
                         }) {
-                            Text(store.tr("View All"))
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(AppTheme.primaryRed)
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.done")
+                                Text("Take All")
+                            }
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(AppTheme.neonGreen)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(AppTheme.neonGreen.opacity(0.14)))
                         }
                     }
                     
+                    // Filter Chips: All, Pending, Taken
+                    HStack(spacing: 10) {
+                        ForEach(["All", "Pending", "Taken"].indices, id: \.self) { idx in
+                            let titles = ["All", "Pending", "Taken"]
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    filterStatus = idx
+                                }
+                                HapticManager.shared.impact(style: .light)
+                            }) {
+                                Text(titles[idx])
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 7)
+                                    .background(
+                                        Capsule()
+                                            .fill(filterStatus == idx ? AppTheme.primaryRed : Color.secondary.opacity(0.12))
+                                    )
+                                    .foregroundColor(filterStatus == idx ? .white : .primary)
+                            }
+                        }
+                        Spacer()
+                    }
+                    
                     // List of today's doses
-                    VStack(spacing: 12) {
-                        ForEach(store.todaySchedule) { dose in
-                            DoseRowCard(dose: dose) {
-                                store.toggleDoseTaken(doseId: dose.id)
+                    VStack(spacing: 14) {
+                        if filteredDoses.isEmpty {
+                            Text("No medications match this filter.")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 24)
+                        } else {
+                            ForEach(filteredDoses) { dose in
+                                FuturisticDoseRowCard(dose: dose) {
+                                    store.toggleDoseTaken(doseId: dose.id)
+                                }
                             }
                         }
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
                 .padding(.top, 6)
                 
-                // Bottom spacing for custom tab bar
+                // Bottom spacing for floating tab bar
                 Spacer()
-                    .frame(height: 90)
+                    .frame(height: 100)
             }
         }
         .sheet(isPresented: $showingNotificationsSheet) {
             NotificationsSheetView()
                 .environmentObject(store)
         }
+        .sheet(isPresented: $store.showingPulseScanner) {
+            BiometricPulseScannerView()
+                .environmentObject(store)
+        }
         .alert(isPresented: $showingTakeNowAlert) {
             Alert(
                 title: Text("Dose Recorded"),
-                message: Text("Great job taking \(takenDoseName)! Your adherence score has been updated."),
+                message: Text("Great job taking \(takenDoseName)! Inventory adjusted and adherence score updated."),
                 dismissButton: .default(Text("OK"))
             )
         }
     }
 }
 
-// MARK: - Quick Action Card Component
-struct QuickActionCard: View {
+// MARK: - Futuristic Quick Action Card Component
+struct FuturisticQuickActionCard: View {
     @Environment(\.colorScheme) var colorScheme
     let title: String
+    let subtitle: String
     let systemImage: String
-    let tintColor: Color
-    let backgroundColor: Color
+    let accentColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -251,84 +458,143 @@ struct QuickActionCard: View {
         }) {
             VStack(spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(colorScheme == .dark ? tintColor.opacity(0.18) : backgroundColor)
-                        .frame(width: 48, height: 48)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(accentColor.opacity(colorScheme == .dark ? 0.22 : 0.12))
+                        .frame(width: 52, height: 52)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(accentColor.opacity(0.35), lineWidth: 1)
+                        )
                     
                     Image(systemName: systemImage)
-                        .font(.system(size: 20))
-                        .foregroundColor(tintColor)
+                        .font(.system(size: 24))
+                        .foregroundColor(accentColor)
                 }
                 
-                Text(title)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                VStack(spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundColor(accentColor)
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .modernCard(cornerRadius: 16)
+            .padding(.vertical, 12)
+            .futuristicCard(cornerRadius: 18)
         }
     }
 }
 
-// MARK: - Dose Row Card
-struct DoseRowCard: View {
+// MARK: - Futuristic Dose Row Card
+struct FuturisticDoseRowCard: View {
+    @EnvironmentObject var store: DataStore
     @Environment(\.colorScheme) var colorScheme
     let dose: ScheduledDose
     let onToggle: () -> Void
     
+    var associatedMedicine: Medicine? {
+        store.medicines.first(where: { $0.id == dose.medicineId })
+    }
+    
     var body: some View {
-        HStack(spacing: 14) {
-            // Time Pill indicator
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(dose.isTaken ? AppTheme.successGreen : AppTheme.primaryRed)
-                    .frame(width: 6, height: 6)
+        HStack(spacing: 16) {
+            // Time Capsule with Live Indicator
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(dose.isTaken ? AppTheme.neonGreen : AppTheme.primaryRed)
+                        .frame(width: 7, height: 7)
+                    
+                    Text(dose.timeString)
+                        .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                        .foregroundColor(.primary)
+                }
                 
-                Text(dose.timeString)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                Text(dose.assignedMemberName)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(.secondary)
             }
-            .frame(width: 78, alignment: .leading)
+            .frame(width: 90, alignment: .leading)
             
-            // Medicine details
-            VStack(alignment: .leading, spacing: 3) {
+            // Medicine Details & Stock Level
+            VStack(alignment: .leading, spacing: 4) {
                 Text(dose.medicineName)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
                     .strikethrough(dose.isTaken, color: .secondary)
                 
-                Text(dose.doseDescription)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    Text(dose.doseDescription)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.secondary)
+                    
+                    if let med = associatedMedicine {
+                        Text("\(med.stockCount) left")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(med.isLowStock ? AppTheme.alertOrange : AppTheme.neonGreen)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(med.isLowStock ? AppTheme.alertOrange.opacity(0.15) : AppTheme.neonGreen.opacity(0.12))
+                            )
+                    }
+                }
             }
             
             Spacer()
             
-            // Checkmark button
-            Button(action: onToggle) {
+            // Interactive Glowing Checkmark Button
+            Button(action: {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                    onToggle()
+                }
+            }) {
                 ZStack {
                     Circle()
-                        .stroke(dose.isTaken ? AppTheme.successGreen : Color.secondary.opacity(0.3), lineWidth: 2)
-                        .frame(width: 26, height: 26)
+                        .stroke(
+                            dose.isTaken ? AppTheme.neonGreen : Color.secondary.opacity(0.3),
+                            lineWidth: 2.5
+                        )
+                        .frame(width: 34, height: 34)
                     
                     if dose.isTaken {
                         Circle()
-                            .fill(AppTheme.successGreen)
-                            .frame(width: 26, height: 26)
+                            .fill(AppTheme.neonGreen)
+                            .frame(width: 34, height: 34)
+                            .shadow(color: AppTheme.neonGreen.opacity(0.5), radius: 6, x: 0, y: 0)
                         
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(size: 16, weight: .heavy))
                             .foregroundColor(.white)
                     }
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .modernCard(cornerRadius: 16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .futuristicCard(cornerRadius: 18, glowColor: dose.isTaken ? AppTheme.neonGreen.opacity(0.2) : Color.clear)
+        .contextMenu {
+            if let med = associatedMedicine {
+                Button(action: {
+                    store.refillMedicine(medicineId: med.id, amount: 30)
+                }) {
+                    Label("Refill Stock (+30 pills)", systemImage: "plus.circle.fill")
+                }
+            }
+            
+            Button(role: .destructive, action: {
+                store.deleteMedicine(id: dose.medicineId)
+            }) {
+                Label("Delete Medicine", systemImage: "trash.fill")
+            }
+        }
     }
 }
 
@@ -340,32 +606,36 @@ struct NotificationsSheetView: View {
     var body: some View {
         NavigationView {
             List {
-                Section(header: Text("Recent Alerts")) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "bell.badge.fill")
-                            .foregroundColor(AppTheme.primaryRed)
-                        VStack(alignment: .leading) {
+                Section(header: Text("Live Bio-Alerts").font(.system(size: 12, weight: .bold, design: .monospaced))) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle().fill(AppTheme.primaryRed.opacity(0.15)).frame(width: 40, height: 40)
+                            Image(systemName: "bell.badge.fill").foregroundColor(AppTheme.primaryRed)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
                             Text("Dose Reminder: Vitamin D3")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
                             Text("Scheduled for 12:30 PM • 1 capsule after food")
-                                .font(.caption)
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                         }
                     }
+                    .padding(.vertical, 4)
                     
-                    HStack(spacing: 12) {
-                        Image(systemName: "heart.text.square.fill")
-                            .foregroundColor(Color.blue)
-                        VStack(alignment: .leading) {
-                            Text("Weekly Report Ready")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Text("Your adherence rate was 92% this week (+5%)")
-                                .font(.caption)
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle().fill(Color.blue.opacity(0.15)).frame(width: 40, height: 40)
+                            Image(systemName: "chart.xyaxis.line").foregroundColor(.blue)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Weekly Adherence Report Ready")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                            Text("Overall adherence rate: \(Int(store.overallAdherencePercentage()))% across all 4 family members")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                         }
                     }
+                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("Notifications")
@@ -376,6 +646,7 @@ struct NotificationsSheetView: View {
                         store.unreadNotificationsCount = 0
                         dismiss()
                     }
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                 }
             }
         }

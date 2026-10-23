@@ -56,8 +56,8 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Custom Curved Modern Floating Tab Bar
-            CustomBottomBar(
+            // Custom Futuristic Biotech Dock Floating Tab Bar
+            CustomFuturisticBottomBar(
                 selectedTab: $store.selectedTab,
                 onAddTap: {
                     store.showingAddMedicineSheet = true
@@ -74,11 +74,15 @@ struct MainTabView: View {
             EmergencyHelpView()
                 .environmentObject(store)
         }
+        .sheet(isPresented: $store.showingPulseScanner) {
+            BiometricPulseScannerView()
+                .environmentObject(store)
+        }
     }
 }
 
-// MARK: - Custom Bottom Bar
-struct CustomBottomBar: View {
+// MARK: - Futuristic Floating Biotech Dock Bar
+struct CustomFuturisticBottomBar: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var store: DataStore
     @Binding var selectedTab: Int
@@ -87,7 +91,7 @@ struct CustomBottomBar: View {
     var body: some View {
         HStack(spacing: 0) {
             // Home
-            TabBarButton(
+            FuturisticTabBarButton(
                 title: "Home",
                 icon: "house.fill",
                 isSelected: selectedTab == 0
@@ -96,21 +100,26 @@ struct CustomBottomBar: View {
             }
             
             // Schedule
-            TabBarButton(
+            FuturisticTabBarButton(
                 title: "Schedule",
-                icon: "calendar",
+                icon: "calendar.badge.clock",
                 isSelected: selectedTab == 1
             ) {
                 selectedTab = 1
             }
             
-            // Center Elevated Add (+) Button
+            // Center Elevated Holographic Add (+) Action Button
             Button(action: onAddTap) {
                 ZStack {
+                    // Pulsing Outer Glow Ring
+                    Circle()
+                        .stroke(AppTheme.primaryRed.opacity(0.3), lineWidth: 2)
+                        .frame(width: 62, height: 62)
+                    
                     Circle()
                         .fill(AppTheme.heroRedGradient)
                         .frame(width: 54, height: 54)
-                        .shadow(color: AppTheme.primaryRed.opacity(0.4), radius: 8, x: 0, y: 4)
+                        .shadow(color: AppTheme.primaryRed.opacity(0.55), radius: 10, x: 0, y: 5)
                     
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .bold))
@@ -121,7 +130,7 @@ struct CustomBottomBar: View {
             .frame(maxWidth: .infinity)
             
             // Family
-            TabBarButton(
+            FuturisticTabBarButton(
                 title: "Family",
                 icon: "person.2.fill",
                 isSelected: selectedTab == 3
@@ -130,9 +139,9 @@ struct CustomBottomBar: View {
             }
             
             // Profile
-            TabBarButton(
+            FuturisticTabBarButton(
                 title: "Profile",
-                icon: "person.fill",
+                icon: "person.crop.circle.fill",
                 isSelected: selectedTab == 5
             ) {
                 selectedTab = 5
@@ -142,12 +151,17 @@ struct CustomBottomBar: View {
         .padding(.top, 10)
         .padding(.bottom, 22)
         .background(
-            (store.isDarkMode ? AppTheme.cardBackgroundDark : Color.white)
+            (store.isDarkMode ? Color(red: 16/255, green: 22/255, blue: 36/255) : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .shadow(color: Color.black.opacity(store.isDarkMode ? 0.35 : 0.08), radius: 15, x: 0, y: -2)
+                .shadow(color: Color.black.opacity(store.isDarkMode ? 0.45 : 0.08), radius: 18, x: 0, y: -2)
                 .overlay(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(store.isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.03), lineWidth: 1)
+                        .stroke(
+                            store.isDarkMode
+                                ? LinearGradient(colors: [Color.white.opacity(0.12), AppTheme.cyberCyan.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : LinearGradient(colors: [Color.black.opacity(0.06), Color.black.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 1.2
+                        )
                 )
         )
         .padding(.horizontal, 16)
@@ -156,7 +170,7 @@ struct CustomBottomBar: View {
 }
 
 // MARK: - Tab Bar Button
-struct TabBarButton: View {
+struct FuturisticTabBarButton: View {
     let title: String
     let icon: String
     let isSelected: Bool
@@ -165,16 +179,32 @@ struct TabBarButton: View {
     var body: some View {
         Button(action: {
             HapticManager.shared.impact(style: .light)
-            action()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                action()
+            }
         }) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: isSelected ? .bold : .regular))
+                    .font(.system(size: 21, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? AppTheme.primaryRed : .secondary)
+                    .scaleEffect(isSelected ? 1.08 : 1.0)
                 
                 Text(title)
-                    .font(.system(size: 10, weight: isSelected ? .bold : .medium, design: .rounded))
+                    .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
                     .foregroundColor(isSelected ? AppTheme.primaryRed : .secondary)
+                
+                // Micro glowing indicator dot under active tab
+                if isSelected {
+                    Circle()
+                        .fill(AppTheme.primaryRed)
+                        .frame(width: 4, height: 4)
+                        .shadow(color: AppTheme.primaryRed, radius: 2)
+                        .transition(.scale)
+                } else {
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 4, height: 4)
+                }
             }
             .frame(maxWidth: .infinity)
         }

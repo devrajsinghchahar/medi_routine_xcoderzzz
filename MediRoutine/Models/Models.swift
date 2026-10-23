@@ -41,6 +41,7 @@ struct Medicine: Identifiable, Codable, Hashable {
     var quantityPerDose: Int = 1      // e.g. 1 tablet, 1 capsule
     var timing: MealTiming = .afterFood
     var assignedMemberId: UUID?       // Which family member this belongs to
+    var assignedMemberName: String = "Ayush"
     var stockCount: Int = 30         // Remaining pills
     var refillThreshold: Int = 5     // Alert when stock is low
     var notes: String = ""
@@ -48,6 +49,10 @@ struct Medicine: Identifiable, Codable, Hashable {
     
     var doseDescription: String {
         "\(quantityPerDose) \(form.rawValue) • \(timing.rawValue)"
+    }
+    
+    var isLowStock: Bool {
+        stockCount <= refillThreshold
     }
 }
 
@@ -61,6 +66,7 @@ struct ScheduledDose: Identifiable, Codable, Hashable {
     var isTaken: Bool = false
     var takenAt: Date? = nil
     var assignedMemberName: String = "Ayush"
+    var assignedMemberId: UUID? = nil
     
     var timeString: String {
         let formatter = DateFormatter()
@@ -105,13 +111,13 @@ enum VitalType: String, CaseIterable, Codable {
     
     var color: Color {
         switch self {
-        case .heartRate: return Color(red: 0.95, green: 0.25, blue: 0.35)
-        case .bloodPressure: return Color(red: 0.85, green: 0.2, blue: 0.4)
-        case .bloodSugar: return Color(red: 0.2, green: 0.55, blue: 0.95)
-        case .temperature: return Color(red: 0.2, green: 0.75, blue: 0.45)
-        case .steps: return Color(red: 0.95, green: 0.55, blue: 0.15)
-        case .sleep: return Color(red: 0.55, green: 0.35, blue: 0.95)
-        case .weight: return Color(red: 0.1, green: 0.7, blue: 0.8)
+        case .heartRate: return Color(red: 0.98, green: 0.22, blue: 0.38)
+        case .bloodPressure: return Color(red: 0.88, green: 0.18, blue: 0.42)
+        case .bloodSugar: return Color(red: 0.05, green: 0.65, blue: 0.98)
+        case .temperature: return Color(red: 0.08, green: 0.82, blue: 0.48)
+        case .steps: return Color(red: 0.98, green: 0.58, blue: 0.12)
+        case .sleep: return Color(red: 0.62, green: 0.38, blue: 0.98)
+        case .weight: return Color(red: 0.05, green: 0.78, blue: 0.88)
         }
     }
 }
@@ -123,7 +129,8 @@ struct VitalRecord: Identifiable, Codable, Hashable {
     var value: Double
     var secondaryValue: Double? = nil // For BP diastolic (e.g. 118 / 76)
     var date: Date = Date()
-    var status: String = "Normal"     // "Normal", "Elevated", "Low"
+    var status: String = "Normal"     // "Normal", "Elevated", "Low", "Optimal"
+    var notes: String = ""
     
     var displayValue: String {
         switch type {
@@ -142,6 +149,36 @@ struct VitalRecord: Identifiable, Codable, Hashable {
             return String(format: "%.1f", value)
         }
     }
+    
+    static func calculateStatus(type: VitalType, value: Double, secondary: Double? = nil) -> String {
+        switch type {
+        case .heartRate:
+            if value < 60 { return "Low" }
+            if value <= 100 { return "Normal" }
+            return "Elevated"
+        case .bloodPressure:
+            let sys = value
+            let dia = secondary ?? 80
+            if sys < 120 && dia < 80 { return "Optimal" }
+            if sys <= 129 && dia < 80 { return "Elevated" }
+            return "High"
+        case .bloodSugar:
+            if value < 70 { return "Low" }
+            if value <= 110 { return "Normal" }
+            if value <= 140 { return "Borderline" }
+            return "High"
+        case .temperature:
+            if value < 36.0 { return "Low" }
+            if value <= 37.3 { return "Normal" }
+            return "Fever"
+        case .steps:
+            return value >= 8000 ? "Goal Met" : "Active"
+        case .sleep:
+            return value >= 7.0 ? "Restful" : "Short"
+        case .weight:
+            return "Logged"
+        }
+    }
 }
 
 // MARK: - Family Member
@@ -155,6 +192,7 @@ struct FamilyMember: Identifiable, Codable, Hashable {
     var avatarColorHex: String = "E53950"
     var notes: String = ""
     var medicationsCount: Int = 1
+    var phoneNumber: String = "+91 98765 43210"
     var vitals: [VitalRecord] = []
     
     var subtitle: String {
